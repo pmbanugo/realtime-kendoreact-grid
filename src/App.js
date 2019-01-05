@@ -9,89 +9,53 @@ import {
 } from "@progress/kendo-react-grid";
 import DialogContainer from "./DialogContainer.js";
 import CellWithEditing from "./CellWithEditing.js";
+import Hamoni from "hamoni-sync";
+const primitiveName = "kendo-grid";
 
 class App extends Component {
   state = {
-    products: [
-      {
-        ProductID: 1,
-        ProductName: "Chai",
-        SupplierID: 1,
-        CategoryID: 1,
-        QuantityPerUnit: "10 boxes x 20 bags",
-        UnitPrice: 18,
-        UnitsInStock: 39,
-        UnitsOnOrder: 0,
-        ReorderLevel: 10,
-        Discontinued: false,
-        Category: {
-          CategoryID: 1,
-          CategoryName: "Beverages",
-          Description: "Soft drinks, coffees, teas, beers, and ales"
-        },
-        FirstOrderedOn: new Date(1996, 8, 20)
-      },
-      {
-        ProductID: 2,
-        ProductName: "Chang",
-        SupplierID: 1,
-        CategoryID: 1,
-        QuantityPerUnit: "24 - 12 oz bottles",
-        UnitPrice: 19,
-        UnitsInStock: 17,
-        UnitsOnOrder: 40,
-        ReorderLevel: 25,
-        Discontinued: false,
-        Category: {
-          CategoryID: 1,
-          CategoryName: "Beverages",
-          Description: "Soft drinks, coffees, teas, beers, and ales"
-        },
-        FirstOrderedOn: new Date(1996, 7, 12)
-      },
-      {
-        ProductID: 3,
-        ProductName: "Aniseed Syrup",
-        SupplierID: 1,
-        CategoryID: 2,
-        QuantityPerUnit: "12 - 550 ml bottles",
-        UnitPrice: 10,
-        UnitsInStock: 13,
-        UnitsOnOrder: 70,
-        ReorderLevel: 25,
-        Discontinued: false,
-        Category: {
-          CategoryID: 2,
-          CategoryName: "Condiments",
-          Description:
-            "Sweet and savory sauces, relishes, spreads, and seasonings"
-        },
-        FirstOrderedOn: new Date(1996, 8, 26)
-      },
-      {
-        ProductID: 4,
-        ProductName: "Chef Anton's Cajun Seasoning",
-        SupplierID: 2,
-        CategoryID: 2,
-        QuantityPerUnit: "48 - 6 oz jars",
-        UnitPrice: 22,
-        UnitsInStock: 53,
-        UnitsOnOrder: 0,
-        ReorderLevel: 0,
-        Discontinued: false,
-        Category: {
-          CategoryID: 2,
-          CategoryName: "Condiments",
-          Description:
-            "Sweet and savory sauces, relishes, spreads, and seasonings"
-        },
-        FirstOrderedOn: new Date(1996, 9, 19)
-      }
-    ],
+    products: [],
     productInEdit: undefined,
     skip: 0,
     take: 2
   };
+
+  async componentDidMount() {
+    const accountId = "YOUR_ACCOUNT_ID";
+    const appId = "YOUR_APP_ID";
+
+    //Note: this portion is recommended to be in your own server and you call it to get a token. This is to avoid exposing you app credentials
+    const response = await fetch("https://api.sync.hamoni.tech/v1/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      body: JSON.stringify({ accountId, appId })
+    });
+    const token = await response.json();
+    this.hamoni = new Hamoni(token);
+
+    try {
+      await this.hamoni.connect();
+      console.log("Yay!");
+      this.hamoni.connect().then(() => {
+        this.hamoni
+          .get(primitiveName)
+          .then(listPrimitive => {
+            this.listPrimitive = listPrimitive;
+            this.setState({ products: this.listPrimitive.getAll() });
+            this.subscribe();
+          })
+          .catch(error => {
+            if (error === "Error getting state from server") {
+              console.log("state needs to be created on Hamoni");
+            }
+          });
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   edit = dataItem => {
     this.setState({ productInEdit: this.cloneProduct(dataItem) });
@@ -113,12 +77,14 @@ class App extends Component {
     const products = this.state.products.slice();
 
     if (dataItem.ProductID === undefined) {
-      //TODO: add to list primitive
-      products.unshift(this.newProduct(dataItem));
+      const newProduct = this.newProduct(dataItem);
+      if (this.listPrimitive) this.listPrimitive.add(newProduct);
+      else this.createListPrimitive(newProduct);
     } else {
-      //TODO: update list primitve
-      const index = products.findIndex(p => p.ProductID === dataItem.ProductID);
-      products.splice(index, 1, dataItem);
+      const index = this.state.products.findIndex(
+        p => p.ProductID === dataItem.ProductID
+      );
+      this.listPrimitive.update(index, dataItem);
     }
 
     this.setState({
@@ -170,6 +136,32 @@ class App extends Component {
       take: event.page.take
     });
   };
+
+  subscribe() {
+    this.listPrimitive.onItemUpdated(item => {
+      const updatedProducts = [
+        ...this.state.products.slice(0, item.index),
+        item.value,
+        ...this.state.products.slice(item.index + 1)
+      ];
+      this.setState({ products: updatedProducts });
+    });
+    this.listPrimitive.onItemAdded(item => {
+      this.setState({ products: [...this.state.products, item.value] });
+    });
+  }
+
+  createListPrimitive(data) {
+    this.hamoni
+      .createList(primitiveName, [data])
+      .then(listPrimitive => {
+        this.listPrimitive = listPrimitive;
+        this.setState({ products: this.listPrimitive.getAll() });
+        this.subscribe();
+      })
+      .catch(console.log);
+  }
+
   render() {
     return (
       <div>

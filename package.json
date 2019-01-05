@@ -11,6 +11,7 @@
     "@progress/kendo-react-inputs": "^2.5.0",
     "@progress/kendo-react-intl": "^2.5.0",
     "@progress/kendo-theme-material": "^1.5.2",
+    "hamoni-sync": "^1.1.1",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
     "react-scripts": "2.1.2"
