@@ -17,43 +17,35 @@ class App extends Component {
     products: [],
     productInEdit: undefined,
     skip: 0,
-    take: 2
+    take: 10
   };
 
   async componentDidMount() {
     const accountId = "YOUR_ACCOUNT_ID";
     const appId = "YOUR_APP_ID";
 
-    //Note: this portion is recommended to be in your own server and you call it to get a token. This is to avoid exposing you app credentials
-    const response = await fetch("https://api.sync.hamoni.tech/v1/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8"
-      },
-      body: JSON.stringify({ accountId, appId })
-    });
-    const token = await response.json();
-    this.hamoni = new Hamoni(token);
-
     try {
+      //Note: this portion is recommended to be in your own server and you call it to get a token. This is to avoid exposing you app credentials
+      const response = await fetch("https://api.sync.hamoni.tech/v1/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        body: JSON.stringify({ accountId, appId })
+      });
+      const token = await response.json();
+      this.hamoni = new Hamoni(token);
+
       await this.hamoni.connect();
       console.log("Yay!");
-      this.hamoni.connect().then(() => {
-        this.hamoni
-          .get(primitiveName)
-          .then(listPrimitive => {
-            this.listPrimitive = listPrimitive;
-            this.setState({ products: this.listPrimitive.getAll() });
-            this.subscribe();
-          })
-          .catch(error => {
-            if (error === "Error getting state from server") {
-              console.log("state needs to be created on Hamoni");
-            }
-          });
-      });
+      const listPrimitive = await this.hamoni.get(primitiveName);
+      this.listPrimitive = listPrimitive;
+      this.setState({ products: this.listPrimitive.getAll() });
+      this.subscribe();
     } catch (error) {
-      console.log(error);
+      if (error === "Error getting state from server") {
+        console.log("state needs to be created on Hamoni");
+      } else console.log(error);
     }
   }
 
@@ -65,10 +57,7 @@ class App extends Component {
     const products = this.state.products.slice();
     const index = products.findIndex(p => p.ProductID === dataItem.ProductID);
     if (index !== -1) {
-      products.splice(index, 1);
-      this.setState({
-        products: products
-      });
+      this.listPrimitive.remove(index);
     }
   };
 
@@ -98,7 +87,6 @@ class App extends Component {
   };
 
   insert = () => {
-    console.log("inserting");
     this.setState({ productInEdit: {} });
   };
 
@@ -146,8 +134,21 @@ class App extends Component {
       ];
       this.setState({ products: updatedProducts });
     });
+
     this.listPrimitive.onItemAdded(item => {
       this.setState({ products: [...this.state.products, item.value] });
+    });
+
+    this.listPrimitive.onItemRemoved(item => {
+      this.setState({
+        products: this.state.products.filter(
+          x => x.ProductID !== item.value.ProductID
+        )
+      });
+    });
+
+    this.listPrimitive.onSync(data => {
+      this.setState({ products: data });
     });
   }
 
