@@ -1,3 +1,15 @@
+This is a React app with data table that supports editing and paging. The data table is built with [KendoReact Grid](https://www.telerik.com/kendo-react-ui/components/grid/), while the real-time data is handled by [Hamoni Sync](https://hamoni.tech).
+
+Follow these steps to set up the project:
+
+1. Register and login to Hamoni [dashboard](https://dashboard.hamoni.tech/).
+2. Enter your preferred application name in the text field and click the create button. This should create the app and display it in the application list section.
+3. Expand the **Account ID** card to get your account ID.
+   ![Hamoni dashboard.png](https://docs.hamoni.tech/assets/dashboard.png)
+4. Open `src/App.js` and replace `accountId` and `appId` with the values from the dashboard.
+5. Open the terminal to the project directory and run `npm install` to install the dependencies.
+6. Run `npm start` to start the app.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
